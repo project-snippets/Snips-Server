@@ -2,6 +2,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const shortid = require('shortid');
 
 /**
  * @typedef {Object} Snippet
@@ -15,13 +16,44 @@ const path = require('path');
  * @property {number} favorites
  */
 
-/* Create */
+/**
+ * Inserts a new snippet into db.
+ * @param {Snippet} newSnippet Data to create snippet
+ * @returns {Promise<Snippet>} Created snippet
+ */
+exports.insert = async ({ author, code, title, description, language }) => {
+  try {
+    if (!author || !code || !title || !description || !language)
+      throw Error('Invalid arguments');
+    // Read snippets.json
+    const dbpath = path.join(__dirname, '..', 'db', 'snippets.json');
+    const snippets = JSON.parse(await fs.readFile(dbpath));
+    // Grab data from new snippet & validate it
+    // Push new snippet into snippets
+    snippets.push({
+      id: shortid.generate(),
+      author,
+      code,
+      title,
+      description,
+      language,
+      comments: [],
+      favorites: 0,
+    });
+    // Write to file
+    await fs.writeFile(dbpath, JSON.stringify(snippets));
+    return snippets[snippets.length - 1];
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+};
 
 /**
  * Selects snippets from db.
  * Accepts optional query object to filter results.
  * @param {Object} [query]
- * @returns {Promise<Snippet[]>}
+ * @returns {Promise<Snippet[]>} Array of snippet objects
  */
 exports.select = async (query = {}) => {
   try {
@@ -35,7 +67,7 @@ exports.select = async (query = {}) => {
     // Return data
     return filtered;
   } catch (err) {
-    console.log('Error in Snippet model');
+    console.log('Error: Snippet select');
     throw err;
   }
 };

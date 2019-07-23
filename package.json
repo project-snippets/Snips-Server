@@ -1,0 +1,22 @@
+{
+  "name": "snips-backend",
+  "version": "1.0.0",
+  "description": "Backend for Snips app.\r Built with MVC architecture.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brennannewton/snips-backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/brennannewton/snips-backend/issues"
+  },
+  "homepage": "https://github.com/brennannewton/snips-backend#readme",
+  "dependencies": {
+    "shortid": "^2.2.14"
+  }
+}
