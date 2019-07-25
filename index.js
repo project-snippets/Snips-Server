@@ -1,23 +1,15 @@
-const Snippet = require('./models/Snippet.model.js');
+const express = require('express');
+const router = require('./middleware/routes');
+const logger = require('./middleware/logger');
 
-async function testModels() {
-  // const snippets = await Snippet.select({
-  //   author: 'Scott',
-  //   language: 'javascript',
-  // });
-  // console.log(snippets);
-  try {
-    const newSnippet = await Snippet.insert({
-      author: 'CJ',
-      code: 'code code code',
-      title: 'test.js',
-      description: 'This works great!',
-      language: 'javascript',
-    });
-    console.log(newSnippet);
-  } catch (err) {
-    console.error(err);
-  }
-}
+const app = express();
 
-testModels();
+/* Middleware */
+app.use(express.json()); // Parses requests with json payloads
+app.use(logger);
+app.use(router);
+
+/* Application */
+app.listen(5000, () => {
+  console.log('Snipps listening on port 5000');
+});

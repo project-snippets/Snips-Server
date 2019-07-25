@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
+/* eslint-disable no-prototype-builtins */
 
-const fs = require('fs').promises;
-const path = require('path');
 const shortid = require('shortid');
+const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
 
 /**
  * @typedef {Object} Snippet
@@ -26,9 +26,8 @@ exports.insert = async ({ author, code, title, description, language }) => {
     if (!author || !code || !title || !description || !language)
       throw Error('Invalid arguments');
     // Read snippets.json
-    const dbpath = path.join(__dirname, '..', 'db', 'snippets.json');
-    const snippets = JSON.parse(await fs.readFile(dbpath));
-    // Grab data from new snippet & validate it
+    const snippets = await readJsonFromDb('snippets');
+    // Grab (validated) data from new snippet
     // Push new snippet into snippets
     snippets.push({
       id: shortid.generate(),
@@ -41,7 +40,7 @@ exports.insert = async ({ author, code, title, description, language }) => {
       favorites: 0,
     });
     // Write to file
-    await fs.writeFile(dbpath, JSON.stringify(snippets));
+    await writeJsonToDb('snippets', JSON.stringify(snippets));
     return snippets[snippets.length - 1];
   } catch (err) {
     console.log(err);
@@ -58,8 +57,7 @@ exports.insert = async ({ author, code, title, description, language }) => {
 exports.select = async (query = {}) => {
   try {
     // Read & parse file
-    const dbpath = path.join(__dirname, '..', 'db', 'snippets.json');
-    const snippets = JSON.parse(await fs.readFile(dbpath));
+    const snippets = await readJsonFromDb('snippets');
     // Filter snippets with query
     const filtered = snippets.filter(snippet =>
       Object.keys(query).every(key => query[key] === snippet[key])
@@ -73,5 +71,42 @@ exports.select = async (query = {}) => {
 };
 
 /* Update */
+exports.update = async (id, newData) => {
+  try {
+    // Read in file
+    const snippets = await readJsonFromDb('snippets');
+    // Find snippet with id
+    // Update snippet with (validated) newData
+    const updated = snippets.map(snippet => {
+      if (snippet.id !== id) return snippet;
+      Object.keys(newData).forEach(key => {
+        if (key in snippet) snippet[key] = newData[key];
+      });
+      return snippet;
+    });
+    // Overwrite existing data
+    return writeJsonToDb('snippets', JSON.stringify(updated));
+  } catch (err) {
+    console.log('Error: Snippet update');
+    throw err;
+  }
+};
 
-/* Delete */
+/**
+ * Deletes a specified snippet from the db.
+ * @param {string} id Unique snippet identifier
+ */
+exports.delete = async id => {
+  try {
+    // Read in database
+    const snippets = await readJsonFromDb('snippets');
+    // Filter results
+    const filtered = snippets.filter(snippet => snippet.id !== id);
+    // Write file
+    if (filtered.length === snippets.length) return;
+    return writeJsonToDb('snippets', JSON.stringify(filtered));
+  } catch (err) {
+    console.log('Error: Snippet delete');
+    throw err;
+  }
+};
