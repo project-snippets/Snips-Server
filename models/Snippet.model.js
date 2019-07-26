@@ -1,8 +1,8 @@
-/* eslint-disable no-console */
 /* eslint-disable no-prototype-builtins */
 
 const shortid = require('shortid');
 const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
+const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
 
 /**
  * @typedef {Object} Snippet
@@ -24,7 +24,7 @@ const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
 exports.insert = async ({ author, code, title, description, language }) => {
   try {
     if (!author || !code || !title || !description || !language)
-      throw Error('Invalid arguments');
+      throw new ErrorWithHttpStatus('Invalid snip properties', 400);
     // Read snippets.json
     const snippets = await readJsonFromDb('snippets');
     // Grab (validated) data from new snippet
@@ -43,8 +43,8 @@ exports.insert = async ({ author, code, title, description, language }) => {
     await writeJsonToDb('snippets', JSON.stringify(snippets));
     return snippets[snippets.length - 1];
   } catch (err) {
-    console.log(err);
-    throw err;
+    if (err instanceof ErrorWithHttpStatus) throw err;
+    else throw new ErrorWithHttpStatus('Database error');
   }
 };
 
@@ -65,14 +65,18 @@ exports.select = async (query = {}) => {
     // Return data
     return filtered;
   } catch (err) {
-    console.log('Error: Snippet select');
-    throw err;
+    throw new ErrorWithHttpStatus('Database error');
   }
 };
 
-/* Update */
-exports.update = async (id, newData) => {
+/**
+ * Updates snippet at specified id with new data
+ * @returns Updated snippet
+ */
+exports.update = async ({ id }, newData) => {
   try {
+    let updatedSnip = {};
+    let idFound = false;
     // Read in file
     const snippets = await readJsonFromDb('snippets');
     // Find snippet with id
@@ -81,14 +85,21 @@ exports.update = async (id, newData) => {
       if (snippet.id !== id) return snippet;
       Object.keys(newData).forEach(key => {
         if (key in snippet) snippet[key] = newData[key];
+        else throw new ErrorWithHttpStatus(`Key "${key}" does not exist`, 400);
       });
+      updatedSnip = snippet;
+      idFound = true;
       return snippet;
     });
+    if (!idFound) {
+      throw new ErrorWithHttpStatus('ID does not exist', 404);
+    }
     // Overwrite existing data
-    return writeJsonToDb('snippets', JSON.stringify(updated));
+    await writeJsonToDb('snippets', JSON.stringify(updated));
+    return updatedSnip;
   } catch (err) {
-    console.log('Error: Snippet update');
-    throw err;
+    if (err instanceof ErrorWithHttpStatus) throw err;
+    else throw new ErrorWithHttpStatus('Database error');
   }
 };
 
@@ -96,17 +107,18 @@ exports.update = async (id, newData) => {
  * Deletes a specified snippet from the db.
  * @param {string} id Unique snippet identifier
  */
-exports.delete = async id => {
+exports.delete = async ({ id }) => {
   try {
     // Read in database
     const snippets = await readJsonFromDb('snippets');
     // Filter results
     const filtered = snippets.filter(snippet => snippet.id !== id);
     // Write file
-    if (filtered.length === snippets.length) return;
+    if (filtered.length === snippets.length)
+      throw new ErrorWithHttpStatus('ID does not exist', 404);
     return writeJsonToDb('snippets', JSON.stringify(filtered));
   } catch (err) {
-    console.log('Error: Snippet delete');
-    throw err;
+    if (err instanceof ErrorWithHttpStatus) throw err;
+    else throw new ErrorWithHttpStatus('Database error');
   }
 };
