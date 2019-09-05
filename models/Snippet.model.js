@@ -1,5 +1,6 @@
 /* eslint-disable no-prototype-builtins */
 
+const format = require('pg-format');
 const shortid = require('shortid');
 const db = require('../db');
 const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
@@ -39,12 +40,22 @@ exports.insert = async ({ id, author, code, title, description, language }) => {
  * @param {Object} [query]
  * @returns {Promise<Snippet[]>} Array of snippet objects
  */
-exports.select = async (query = {}) => {
+exports.select = async query => {
   try {
-    const result = await db.query('SELECT * FROM snippet');
-    return result.rows;
+    const clauses = Object.keys(query)
+      .map((key, i) => `%I = $${i + 1}`)
+      .join(' AND ');
+    const formattedSelect = format(
+      `SELECT * FROM snippet ${clauses.length ? `WHERE ${clauses}` : ''}`,
+      ...Object.keys(query)
+    );
+
+    const results = await db.query(formattedSelect, Object.values(query));
+    return results.rows;
   } catch (err) {
-    throw new ErrorWithHttpStatus('Database error');
+    console.log(err);
+    if (err instanceof ErrorWithHttpStatus) throw err;
+    else throw new ErrorWithHttpStatus('Database Error', 500);
   }
 };
 
@@ -58,9 +69,7 @@ exports.update = async ({ id }, newData) => {
     Object.keys(newData).forEach(key => {
       tempString = tempString.concat(key) + ' = ' + `'${newData[key]}'` + ', ';
     });
-    console.log('Before Slice', tempString);
     const finalString = tempString.slice(0, tempString.length - 2);
-    console.log('After Slice', finalString);
     await db.query(`UPDATE snippet SET ${finalString} WHERE id = '${id}'`);
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
