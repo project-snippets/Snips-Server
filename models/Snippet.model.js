@@ -27,27 +27,6 @@ exports.insert = async ({ id, author, code, title, description, language }) => {
     await db.query(
       `INSERT INTO snippet VALUES ('${id}', '${code}', '${title}', '${description}', '0', '${author}', '${language}')`
     );
-    // INSERT INTO snippet VALUES ('4', 'SomeCode', 'SomeTest', 'SomeDesc', '1', 'SomeAuthor', 'SomeLanguage');
-
-    // if (!author || !code || !title || !description || !language)
-    //   throw new ErrorWithHttpStatus('Invalid snip properties', 400);
-    // // Read snippets.json
-    // const snippets = await readJsonFromDb('snippets');
-    // // Grab (validated) data from new snippet
-    // // Push new snippet into snippets
-    // snippets.push({
-    //   id: shortid.generate(),
-    //   author,
-    //   code,
-    //   title,
-    //   description,
-    //   language,
-    //   comments: [],
-    //   favorites: 0
-    // });
-    // // Write to file
-    // await writeJsonToDb('snippets', JSON.stringify(snippets));
-    // return snippets[snippets.length - 1];
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
@@ -75,37 +54,14 @@ exports.select = async (query = {}) => {
  */
 exports.update = async ({ id }, newData) => {
   try {
-    console.log(newData);
-    console.log(id);
     let tempString = ``;
     Object.keys(newData).forEach(key => {
-      tempString =
-        tempString.concat(key) + ' = ' + `'${tempString.concat(newData[key])}'`;
+      tempString = tempString.concat(key) + ' = ' + `'${newData[key]}'` + ', ';
     });
-    console.log('tempString', tempString);
-    await db.query(`UPDATE snippet SET ${tempString} WHERE id = '${id}'`);
-    // let updatedSnip = {};
-    // let idFound = false;
-    // // Read in file
-    // const snippets = await readJsonFromDb('snippets');
-    // // Find snippet with id
-    // // Update snippet with (validated) newData
-    // const updated = snippets.map(snippet => {
-    //   if (snippet.id !== id) return snippet;
-    //   Object.keys(newData).forEach(key => {
-    //     if (key in snippet) snippet[key] = newData[key];
-    //     else throw new ErrorWithHttpStatus(`Key "${key}" does not exist`, 400);
-    //   });
-    //   updatedSnip = snippet;
-    //   idFound = true;
-    //   return snippet;
-    // });
-    // if (!idFound) {
-    //   throw new ErrorWithHttpStatus('ID does not exist', 404);
-    // }
-    // // Overwrite existing data
-    // await writeJsonToDb('snippets', JSON.stringify(updated));
-    // return updatedSnip;
+    console.log('Before Slice', tempString);
+    const finalString = tempString.slice(0, tempString.length - 2);
+    console.log('After Slice', finalString);
+    await db.query(`UPDATE snippet SET ${finalString} WHERE id = '${id}'`);
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
