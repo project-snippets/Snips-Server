@@ -1,6 +1,8 @@
 /* eslint-disable no-prototype-builtins */
 
+const format = require('pg-format');
 const shortid = require('shortid');
+const db = require('../db');
 const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
 const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
 
@@ -21,27 +23,11 @@ const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
  * @param {Snippet} newSnippet Data to create snippet
  * @returns {Promise<Snippet>} Created snippet
  */
-exports.insert = async ({ author, code, title, description, language }) => {
+exports.insert = async ({ id, author, code, title, description, language }) => {
   try {
-    if (!author || !code || !title || !description || !language)
-      throw new ErrorWithHttpStatus('Invalid snip properties', 400);
-    // Read snippets.json
-    const snippets = await readJsonFromDb('snippets');
-    // Grab (validated) data from new snippet
-    // Push new snippet into snippets
-    snippets.push({
-      id: shortid.generate(),
-      author,
-      code,
-      title,
-      description,
-      language,
-      comments: [],
-      favorites: 0,
-    });
-    // Write to file
-    await writeJsonToDb('snippets', JSON.stringify(snippets));
-    return snippets[snippets.length - 1];
+    await db.query(
+      `INSERT INTO snippet VALUES ('${id}', '${code}', '${title}', '${description}', '0', '${author}', '${language}')`
+    );
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
@@ -54,18 +40,22 @@ exports.insert = async ({ author, code, title, description, language }) => {
  * @param {Object} [query]
  * @returns {Promise<Snippet[]>} Array of snippet objects
  */
-exports.select = async (query = {}) => {
+exports.select = async query => {
   try {
-    // Read & parse file
-    const snippets = await readJsonFromDb('snippets');
-    // Filter snippets with query
-    const filtered = snippets.filter(snippet =>
-      Object.keys(query).every(key => query[key] === snippet[key])
+    const clauses = Object.keys(query)
+      .map((key, i) => `%I = $${i + 1}`)
+      .join(' AND ');
+    const formattedSelect = format(
+      `SELECT * FROM snippet ${clauses.length ? `WHERE ${clauses}` : ''}`,
+      ...Object.keys(query)
     );
-    // Return data
-    return filtered;
+
+    const results = await db.query(formattedSelect, Object.values(query));
+    return results.rows;
   } catch (err) {
-    throw new ErrorWithHttpStatus('Database error');
+    console.log(err);
+    if (err instanceof ErrorWithHttpStatus) throw err;
+    else throw new ErrorWithHttpStatus('Database Error', 500);
   }
 };
 
@@ -75,28 +65,12 @@ exports.select = async (query = {}) => {
  */
 exports.update = async ({ id }, newData) => {
   try {
-    let updatedSnip = {};
-    let idFound = false;
-    // Read in file
-    const snippets = await readJsonFromDb('snippets');
-    // Find snippet with id
-    // Update snippet with (validated) newData
-    const updated = snippets.map(snippet => {
-      if (snippet.id !== id) return snippet;
-      Object.keys(newData).forEach(key => {
-        if (key in snippet) snippet[key] = newData[key];
-        else throw new ErrorWithHttpStatus(`Key "${key}" does not exist`, 400);
-      });
-      updatedSnip = snippet;
-      idFound = true;
-      return snippet;
+    let tempString = ``;
+    Object.keys(newData).forEach(key => {
+      tempString = tempString.concat(key) + ' = ' + `'${newData[key]}'` + ', ';
     });
-    if (!idFound) {
-      throw new ErrorWithHttpStatus('ID does not exist', 404);
-    }
-    // Overwrite existing data
-    await writeJsonToDb('snippets', JSON.stringify(updated));
-    return updatedSnip;
+    const finalString = tempString.slice(0, tempString.length - 2);
+    await db.query(`UPDATE snippet SET ${finalString} WHERE id = '${id}'`);
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
@@ -109,14 +83,9 @@ exports.update = async ({ id }, newData) => {
  */
 exports.delete = async ({ id }) => {
   try {
-    // Read in database
-    const snippets = await readJsonFromDb('snippets');
-    // Filter results
-    const filtered = snippets.filter(snippet => snippet.id !== id);
-    // Write file
-    if (filtered.length === snippets.length)
-      throw new ErrorWithHttpStatus('ID does not exist', 404);
-    return writeJsonToDb('snippets', JSON.stringify(filtered));
+    const result = await db.query(`DELETE FROM snippet WHERE id = $1`, [id]);
+    if (result.rowCount === 0)
+      throw new ErrorWithHttpStatus(`Snippet with ID ${id} not found`, 404); // short circuit if id not found
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
