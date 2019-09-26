@@ -15,7 +15,7 @@ describe('Snippets', () => {
     it('should get all of the snips', async () => {
       const response = await request(app).get('/api/snippets');
       // expect two rows
-      expect(response.body.length).toBe(2);
+      expect(response.body.length).toBe(3);
       // no errors
       expect(response.error).toBeFalsy();
       // expect status code 200
